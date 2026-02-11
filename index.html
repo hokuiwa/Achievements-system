@@ -502,7 +502,7 @@
         // ========================================
         // 設定
         // ========================================
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbyX-HnH7rTzOlAQaYzdA_ULqQXFrzW4AznRvkjXBzfwOES74atBGCwwO3Lhpr8AAAePCw/exec'; // ← ここを変更
+        const GAS_URL = 'あなたのGAS_URLをここに入力'; // ← ここを変更
 
         // ========================================
         // State
@@ -544,10 +544,11 @@
             try {
                 const response = await fetch(GAS_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(params)
+                    // headersを削除してプリフライトを回避
                 });
-                return await response.json();
+                const text = await response.text();
+                return JSON.parse(text);
             } catch (error) {
                 console.error('API エラー:', error);
                 throw error;
