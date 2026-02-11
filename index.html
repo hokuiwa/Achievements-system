@@ -513,7 +513,17 @@
             sales: [],
             disposalCosts: [],
             profitAnalysis: null,
-            customers: []
+            customers: [],
+            wasteTypes: [],      // 廃棄物種類マスタ
+            facilities: [],      // 処分場マスタ
+            newDisposal: {       // 新規入力中のデータ
+                facility: '',
+                customerCode: '',
+                wasteType: '',
+                quantity: '',
+                unitPrice: '',
+                notes: ''
+            }
         };
 
         // ========================================
@@ -530,8 +540,10 @@
             state.selectedYearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
             document.getElementById('yearMonthSelector').value = state.selectedYearMonth;
             
-            // 顧客データ読み込み
+            // マスタデータ読み込み
             await loadCustomers();
+            await loadWasteTypes();
+            await loadFacilities();
             
             // メニュー表示
             render();
@@ -559,6 +571,20 @@
             const result = await callGAS({ action: 'getCustomers' });
             if (result.success) {
                 state.customers = result.data.customers || [];
+            }
+        }
+
+        async function loadWasteTypes() {
+            const result = await callGAS({ action: 'getWasteTypes' });
+            if (result.success) {
+                state.wasteTypes = result.data || [];
+            }
+        }
+
+        async function loadFacilities() {
+            const result = await callGAS({ action: 'getFacilities' });
+            if (result.success) {
+                state.facilities = result.data || [];
             }
         }
 
@@ -612,7 +638,53 @@
                 });
                 if (result.success) {
                     await loadDisposalCosts(state.selectedYearMonth);
+                    // 入力フォームをクリア
+                    state.newDisposal = {
+                        facility: '',
+                        customerCode: '',
+                        wasteType: '',
+                        quantity: '',
+                        unitPrice: '',
+                        notes: ''
+                    };
                     render();
+                    alert('処分料を登録しました');
+                }
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function saveGeneralDisposalCost(data) {
+            showLoading('一般廃棄物処分料を保存しています...');
+            try {
+                const result = await callGAS({
+                    action: 'saveGeneralDisposalCost',
+                    data: data
+                });
+                if (result.success) {
+                    await loadDisposalCosts(state.selectedYearMonth);
+                    render();
+                    alert('一般廃棄物処分料を保存しました');
+                }
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function deleteDisposalCost(id) {
+            if (!confirm('この明細を削除しますか？')) return;
+            
+            showLoading('削除しています...');
+            try {
+                const result = await callGAS({
+                    action: 'deleteDisposalCost',
+                    id: id
+                });
+                if (result.success) {
+                    await loadDisposalCosts(state.selectedYearMonth);
+                    render();
+                    alert('削除しました');
                 }
             } finally {
                 hideLoading();
@@ -851,9 +923,11 @@
         }
 
         function renderDisposal() {
-            const general = state.disposalCosts.find(c => c.category === 'general') || {};
-            const industrial = state.disposalCosts.filter(c => c.category === 'industrial');
-            const construction = state.disposalCosts.filter(c => c.category === 'construction');
+            // 一般廃棄物の処分料
+            const generalCost = state.disposalCosts.find(c => c.wasteType === '一般廃棄物') || {};
+            
+            // 産廃・建廃の明細（一般廃棄物以外）
+            const otherCosts = state.disposalCosts.filter(c => c.wasteType !== '一般廃棄物');
             
             return `
                 <button class="back-button" onclick="switchView('menu')">← メニューに戻る</button>
@@ -862,98 +936,293 @@
                     <h2>💰 処分料入力</h2>
                     <div class="subtitle">処分料を登録して粗利を計算します</div>
                     
-                    <!-- 一般廃棄物 -->
+                    <!-- 一般廃棄物（月次一括） -->
                     <div class="form-section">
                         <h3>🗑️ 一般廃棄物（月次一括）</h3>
                         <div class="form-grid">
                             <div class="form-group">
                                 <label>総搬入量（kg）</label>
-                                <input type="number" id="general_kg" value="${general.kg || ''}" placeholder="8000">
+                                <input type="number" id="general_quantity" value="${generalCost.quantity || ''}" placeholder="8000">
                             </div>
                             <div class="form-group">
                                 <label>総処分料（円）</label>
-                                <input type="number" id="general_cost" value="${general.cost || ''}" placeholder="200000">
+                                <input type="number" id="general_cost" value="${generalCost.totalCost || ''}" placeholder="200000">
+                            </div>
+                            <div class="form-group">
+                                <label>処分場</label>
+                                <select id="general_facility">
+                                    <option value="">選択してください</option>
+                                    ${state.facilities.map(f => `
+                                        <option value="${f.name}" ${f.name === generalCost.facility ? 'selected' : ''}>
+                                            ${f.name}
+                                        </option>
+                                    `).join('')}
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label>備考</label>
-                                <input type="text" id="general_notes" value="${general.notes || ''}" placeholder="○○処分場">
+                                <input type="text" id="general_notes" value="${generalCost.notes || ''}" placeholder="備考">
                             </div>
                         </div>
-                        ${general.kg && general.cost ? `
-                            <div class="unit-display">💡 単価: ¥${(general.cost / general.kg).toFixed(2)}/kg</div>
+                        ${generalCost.quantity && generalCost.totalCost ? `
+                            <div class="unit-display">💡 単価: ¥${(generalCost.totalCost / generalCost.quantity).toFixed(2)}/kg</div>
                         ` : ''}
                         <button class="btn btn-primary" onclick="saveGeneral()" style="margin-top: 16px;">保存</button>
                     </div>
                     
-                    <!-- 産廃 -->
+                    <!-- 産廃・建廃（処分場別明細） -->
                     <div class="form-section">
-                        <h3>🏭 産業廃棄物（顧客別）</h3>
-                        <div id="industrialList">
-                            ${industrial.map(c => renderCostItem(c)).join('')}
+                        <h3>🏭 産廃・建廃（処分場別明細）</h3>
+                        
+                        <!-- 新規入力フォーム -->
+                        <div style="background: white; border: 2px solid #3b82f6; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                            <h4 style="margin-bottom: 16px; color: #3b82f6;">📝 新規明細を追加</h4>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>処分場 <span style="color: #ef4444;">*</span></label>
+                                    <select id="new_facility" onchange="updateNewDisposal('facility', this.value)">
+                                        <option value="">選択してください</option>
+                                        ${state.facilities.map(f => `
+                                            <option value="${f.name}" ${state.newDisposal.facility === f.name ? 'selected' : ''}>
+                                                ${f.name}
+                                            </option>
+                                        `).join('')}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>顧客コード <span style="color: #ef4444;">*</span></label>
+                                    <input type="text" 
+                                           id="new_customerCode" 
+                                           value="${state.newDisposal.customerCode}" 
+                                           onchange="updateNewDisposal('customerCode', this.value)"
+                                           onblur="loadCustomerName(this.value)"
+                                           placeholder="1100"
+                                           list="customerCodes">
+                                    <datalist id="customerCodes">
+                                        ${state.customers.map(c => `
+                                            <option value="${c.code}">${c.name}</option>
+                                        `).join('')}
+                                    </datalist>
+                                </div>
+                                <div class="form-group">
+                                    <label>廃棄物種類 <span style="color: #ef4444;">*</span></label>
+                                    <select id="new_wasteType" onchange="updateNewDisposal('wasteType', this.value); loadDefaultUnitPrice(this.value, document.getElementById('new_customerCode').value)">
+                                        <option value="">選択してください</option>
+                                        ${state.wasteTypes.filter(w => w.category !== 'general').map(w => `
+                                            <option value="${w.name}" ${state.newDisposal.wasteType === w.name ? 'selected' : ''}>
+                                                ${w.name}
+                                            </option>
+                                        `).join('')}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>数量（kg） <span style="color: #ef4444;">*</span></label>
+                                    <input type="number" 
+                                           id="new_quantity" 
+                                           value="${state.newDisposal.quantity}" 
+                                           onchange="updateNewDisposal('quantity', this.value); calculateTotal()"
+                                           placeholder="500">
+                                </div>
+                                <div class="form-group">
+                                    <label>単価（円/kg） <span style="color: #ef4444;">*</span></label>
+                                    <input type="number" 
+                                           id="new_unitPrice" 
+                                           value="${state.newDisposal.unitPrice}" 
+                                           onchange="updateNewDisposal('unitPrice', this.value); calculateTotal()"
+                                           placeholder="30">
+                                </div>
+                                <div class="form-group">
+                                    <label>備考</label>
+                                    <input type="text" 
+                                           id="new_notes" 
+                                           value="${state.newDisposal.notes}" 
+                                           onchange="updateNewDisposal('notes', this.value)"
+                                           placeholder="備考">
+                                </div>
+                            </div>
+                            <div id="customerNameDisplay" style="margin: 12px 0; padding: 12px; background: #f8fafc; border-radius: 8px; font-size: 14px; display: none;">
+                                <strong>顧客名:</strong> <span id="customerNameText"></span>
+                            </div>
+                            <div id="totalCostDisplay" style="margin: 12px 0; padding: 16px; background: #eff6ff; border: 2px solid #3b82f6; border-radius: 8px; font-size: 18px; font-weight: 700; text-align: center; display: none;">
+                                合計金額: <span id="totalCostText" style="color: #3b82f6;">¥0</span>
+                            </div>
+                            <button class="btn btn-primary" onclick="addNewDisposal()" style="width: 100%; margin-top: 16px;">
+                                ✅ 登録
+                            </button>
                         </div>
-                        <button class="btn btn-secondary" onclick="addCostItem('industrial')">+ 顧客を追加</button>
-                    </div>
-                    
-                    <!-- 建廃 -->
-                    <div class="form-section">
-                        <h3>🏗️ 建設廃棄物（顧客別）</h3>
-                        <div id="constructionList">
-                            ${construction.map(c => renderCostItem(c)).join('')}
-                        </div>
-                        <button class="btn btn-secondary" onclick="addCostItem('construction')">+ 顧客を追加</button>
+                        
+                        <!-- 登録済み明細一覧 -->
+                        <h4 style="margin: 24px 0 12px 0;">📋 登録済み明細（${otherCosts.length}件）</h4>
+                        ${otherCosts.length === 0 ? `
+                            <div style="text-align: center; padding: 40px; color: #64748b; background: #f8fafc; border-radius: 8px;">
+                                まだ明細が登録されていません
+                            </div>
+                        ` : `
+                            <div style="display: grid; gap: 12px;">
+                                ${otherCosts.map(cost => renderDisposalItem(cost)).join('')}
+                            </div>
+                        `}
                     </div>
                 </div>
             `;
         }
 
-        function renderCostItem(cost) {
-            const unitCost = cost.kg && cost.cost ? (cost.cost / cost.kg).toFixed(2) : '0.00';
+        function renderDisposalItem(cost) {
+            const totalCost = cost.quantity * cost.unitPrice;
             return `
-                <div class="customer-item" id="cost_${cost.id}">
+                <div class="customer-item" style="background: white;">
                     <div class="customer-header">
-                        <div class="customer-name">${cost.customerName || '顧客を選択'}</div>
-                        <button class="btn btn-danger" onclick="removeCost('${cost.id}')">削除</button>
+                        <div>
+                            <div class="customer-name">${cost.customerName || cost.customerCode}</div>
+                            <div style="font-size: 13px; color: #64748b; margin-top: 4px;">
+                                ${cost.facility} | ${cost.wasteType}
+                            </div>
+                        </div>
+                        <button class="btn btn-danger" onclick="deleteDisposalCost('${cost.id}')">削除</button>
                     </div>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label>顧客</label>
-                            <select onchange="updateCostCustomer('${cost.id}', this.value)">
-                                <option value="">選択してください</option>
-                                ${state.customers.map(c => `
-                                    <option value="${c.code}" ${c.code === cost.customerCode ? 'selected' : ''}>
-                                        ${c.code} - ${c.name}
-                                    </option>
-                                `).join('')}
-                            </select>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0;">
+                        <div>
+                            <div class="profit-label">数量</div>
+                            <div class="profit-value">${cost.quantity.toLocaleString()} kg</div>
                         </div>
-                        <div class="form-group">
-                            <label>重量（kg）</label>
-                            <input type="number" value="${cost.kg || ''}" onchange="updateCostValue('${cost.id}', 'kg', this.value)">
+                        <div>
+                            <div class="profit-label">単価</div>
+                            <div class="profit-value">¥${cost.unitPrice.toLocaleString()}/kg</div>
                         </div>
-                        <div class="form-group">
-                            <label>処分料（円）</label>
-                            <input type="number" value="${cost.cost || ''}" onchange="updateCostValue('${cost.id}', 'cost', this.value)">
+                        <div>
+                            <div class="profit-label">合計金額</div>
+                            <div class="profit-value" style="color: #3b82f6;">¥${totalCost.toLocaleString()}</div>
                         </div>
                     </div>
-                    ${cost.kg && cost.cost ? `<div class="unit-display">💡 単価: ¥${unitCost}/kg</div>` : ''}
+                    ${cost.notes ? `
+                        <div style="margin-top: 12px; padding: 8px; background: #f8fafc; border-radius: 6px; font-size: 13px; color: #64748b;">
+                            📝 ${cost.notes}
+                        </div>
+                    ` : ''}
                 </div>
             `;
         }
 
-        async function saveGeneral() {
-            const kg = parseFloat(document.getElementById('general_kg').value);
-            const cost = parseFloat(document.getElementById('general_cost').value);
-            const notes = document.getElementById('general_notes').value;
+        function updateNewDisposal(field, value) {
+            state.newDisposal[field] = value;
+        }
+
+        function loadCustomerName(code) {
+            const customer = state.customers.find(c => c.code === code);
+            if (customer) {
+                document.getElementById('customerNameDisplay').style.display = 'block';
+                document.getElementById('customerNameText').textContent = customer.name;
+            } else {
+                document.getElementById('customerNameDisplay').style.display = 'none';
+            }
+        }
+
+        function loadDefaultUnitPrice(wasteTypeName, customerCode) {
+            // 過去の実績から単価を取得
+            const pastCost = state.disposalCosts.find(c => 
+                c.customerCode === customerCode && c.wasteType === wasteTypeName
+            );
             
-            if (!kg || !cost) {
-                alert('重量と処分料を入力してください');
+            if (pastCost && pastCost.unitPrice) {
+                state.newDisposal.unitPrice = pastCost.unitPrice;
+                document.getElementById('new_unitPrice').value = pastCost.unitPrice;
+            } else {
+                // マスタのデフォルト単価を使用
+                const wasteType = state.wasteTypes.find(w => w.name === wasteTypeName);
+                if (wasteType && wasteType.defaultUnitPrice) {
+                    state.newDisposal.unitPrice = wasteType.defaultUnitPrice;
+                    document.getElementById('new_unitPrice').value = wasteType.defaultUnitPrice;
+                }
+            }
+            calculateTotal();
+        }
+
+        function calculateTotal() {
+            const quantity = parseFloat(state.newDisposal.quantity) || 0;
+            const unitPrice = parseFloat(state.newDisposal.unitPrice) || 0;
+            const total = quantity * unitPrice;
+            
+            if (total > 0) {
+                document.getElementById('totalCostDisplay').style.display = 'block';
+                document.getElementById('totalCostText').textContent = '¥' + total.toLocaleString();
+            } else {
+                document.getElementById('totalCostDisplay').style.display = 'none';
+            }
+        }
+
+        async function addNewDisposal() {
+            const { facility, customerCode, wasteType, quantity, unitPrice, notes } = state.newDisposal;
+            
+            // バリデーション
+            if (!facility) {
+                alert('処分場を選択してください');
+                return;
+            }
+            if (!customerCode) {
+                alert('顧客コードを入力してください');
+                return;
+            }
+            if (!wasteType) {
+                alert('廃棄物種類を選択してください');
+                return;
+            }
+            if (!quantity || quantity <= 0) {
+                alert('数量を入力してください');
+                return;
+            }
+            if (!unitPrice || unitPrice <= 0) {
+                alert('単価を入力してください');
                 return;
             }
             
+            // 顧客名を取得
+            const customer = state.customers.find(c => c.code === customerCode);
+            const customerName = customer ? customer.name : '';
+            
+            if (!customerName) {
+                alert('顧客コードが見つかりません');
+                return;
+            }
+            
+            // 合計金額を計算
+            const totalCost = parseFloat(quantity) * parseFloat(unitPrice);
+            
+            // 保存
             await saveDisposalCost({
                 yearMonth: state.selectedYearMonth,
-                category: 'general',
-                kg, cost, notes
+                facility: facility,
+                customerCode: customerCode,
+                customerName: customerName,
+                wasteType: wasteType,
+                quantity: parseFloat(quantity),
+                unitPrice: parseFloat(unitPrice),
+                totalCost: totalCost,
+                notes: notes
+            });
+        }
+
+        async function saveGeneral() {
+            const quantity = parseFloat(document.getElementById('general_quantity').value);
+            const cost = parseFloat(document.getElementById('general_cost').value);
+            const facility = document.getElementById('general_facility').value;
+            const notes = document.getElementById('general_notes').value;
+            
+            if (!quantity || !cost) {
+                alert('総搬入量と総処分料を入力してください');
+                return;
+            }
+            
+            if (!facility) {
+                alert('処分場を選択してください');
+                return;
+            }
+            
+            await saveGeneralDisposalCost({
+                yearMonth: state.selectedYearMonth,
+                facility: facility,
+                quantity: quantity,
+                totalCost: cost,
+                notes: notes
             });
         }
 
