@@ -502,7 +502,7 @@
         // ========================================
         // 設定
         // ========================================
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbyX-HnH7rTzOlAQaYzdA_ULqQXFrzW4AznRvkjXBzfwOES74atBGCwwO3Lhpr8AAAePCw/exec'; // ← ここを変更
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbx5PgcaXjWPX4fNoHu_jy_dPPq82HIy624Gu8H64BFXdsug2VUdO0kmxkJ6NrvOJDVSsQ/exec'; // ← ここを変更
 
         // ========================================
         // State
@@ -521,6 +521,7 @@
                 customerCode: '',
                 wasteType: '',
                 quantity: '',
+                unit: 'kg',      // 単位（デフォルト: kg）
                 unitPrice: '',
                 notes: ''
             }
@@ -644,6 +645,7 @@
                         customerCode: '',
                         wasteType: '',
                         quantity: '',
+                        unit: 'kg',
                         unitPrice: '',
                         notes: ''
                     };
@@ -941,8 +943,16 @@
                         <h3>🗑️ 一般廃棄物（月次一括）</h3>
                         <div class="form-grid">
                             <div class="form-group">
-                                <label>総搬入量（kg）</label>
-                                <input type="number" id="general_quantity" value="${generalCost.quantity || ''}" placeholder="8000">
+                                <label>総搬入量</label>
+                                <input type="number" id="general_quantity" value="${generalCost.quantity || ''}" placeholder="8000" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label>単位</label>
+                                <select id="general_unit">
+                                    <option value="kg" ${(generalCost.unit || 'kg') === 'kg' ? 'selected' : ''}>kg</option>
+                                    <option value="㎥" ${generalCost.unit === '㎥' ? 'selected' : ''}>㎥</option>
+                                    <option value="台" ${generalCost.unit === '台' ? 'selected' : ''}>台</option>
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label>総処分料（円）</label>
@@ -965,7 +975,7 @@
                             </div>
                         </div>
                         ${generalCost.quantity && generalCost.totalCost ? `
-                            <div class="unit-display">💡 単価: ¥${(generalCost.totalCost / generalCost.quantity).toFixed(2)}/kg</div>
+                            <div class="unit-display">💡 単価: ¥${(generalCost.totalCost / generalCost.quantity).toFixed(2)}/${generalCost.unit || 'kg'}</div>
                         ` : ''}
                         <button class="btn btn-primary" onclick="saveGeneral()" style="margin-top: 16px;">保存</button>
                     </div>
@@ -1016,20 +1026,33 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label>数量（kg） <span style="color: #ef4444;">*</span></label>
+                                    <label>数量 <span style="color: #ef4444;">*</span></label>
                                     <input type="number" 
                                            id="new_quantity" 
                                            value="${state.newDisposal.quantity}" 
                                            onchange="updateNewDisposal('quantity', this.value); calculateTotal()"
-                                           placeholder="500">
+                                           placeholder="500"
+                                           step="0.01">
                                 </div>
                                 <div class="form-group">
-                                    <label>単価（円/kg） <span style="color: #ef4444;">*</span></label>
+                                    <label>単位 <span style="color: #ef4444;">*</span></label>
+                                    <select id="new_unit" onchange="updateNewDisposal('unit', this.value); updateUnitPriceLabel()">
+                                        <option value="kg" ${state.newDisposal.unit === 'kg' ? 'selected' : ''}>kg</option>
+                                        <option value="㎥" ${state.newDisposal.unit === '㎥' ? 'selected' : ''}>㎥</option>
+                                        <option value="台" ${state.newDisposal.unit === '台' ? 'selected' : ''}>台</option>
+                                        <option value="枚" ${state.newDisposal.unit === '枚' ? 'selected' : ''}>枚</option>
+                                        <option value="本" ${state.newDisposal.unit === '本' ? 'selected' : ''}>本</option>
+                                        <option value="個" ${state.newDisposal.unit === '個' ? 'selected' : ''}>個</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label id="unitPriceLabel">単価（円/${state.newDisposal.unit}） <span style="color: #ef4444;">*</span></label>
                                     <input type="number" 
                                            id="new_unitPrice" 
                                            value="${state.newDisposal.unitPrice}" 
                                            onchange="updateNewDisposal('unitPrice', this.value); calculateTotal()"
-                                           placeholder="30">
+                                           placeholder="30"
+                                           step="0.01">
                                 </div>
                                 <div class="form-group">
                                     <label>備考</label>
@@ -1069,6 +1092,7 @@
 
         function renderDisposalItem(cost) {
             const totalCost = cost.quantity * cost.unitPrice;
+            const unit = cost.unit || 'kg';
             return `
                 <div class="customer-item" style="background: white;">
                     <div class="customer-header">
@@ -1083,11 +1107,11 @@
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0;">
                         <div>
                             <div class="profit-label">数量</div>
-                            <div class="profit-value">${cost.quantity.toLocaleString()} kg</div>
+                            <div class="profit-value">${cost.quantity.toLocaleString()} ${unit}</div>
                         </div>
                         <div>
                             <div class="profit-label">単価</div>
-                            <div class="profit-value">¥${cost.unitPrice.toLocaleString()}/kg</div>
+                            <div class="profit-value">¥${cost.unitPrice.toLocaleString()}/${unit}</div>
                         </div>
                         <div>
                             <div class="profit-label">合計金額</div>
@@ -1105,6 +1129,14 @@
 
         function updateNewDisposal(field, value) {
             state.newDisposal[field] = value;
+        }
+
+        function updateUnitPriceLabel() {
+            const unit = state.newDisposal.unit || 'kg';
+            const label = document.getElementById('unitPriceLabel');
+            if (label) {
+                label.innerHTML = `単価（円/${unit}） <span style="color: #ef4444;">*</span>`;
+            }
         }
 
         function loadCustomerName(code) {
@@ -1151,7 +1183,7 @@
         }
 
         async function addNewDisposal() {
-            const { facility, customerCode, wasteType, quantity, unitPrice, notes } = state.newDisposal;
+            const { facility, customerCode, wasteType, quantity, unit, unitPrice, notes } = state.newDisposal;
             
             // バリデーション
             if (!facility) {
@@ -1195,6 +1227,7 @@
                 customerName: customerName,
                 wasteType: wasteType,
                 quantity: parseFloat(quantity),
+                unit: unit || 'kg',
                 unitPrice: parseFloat(unitPrice),
                 totalCost: totalCost,
                 notes: notes
@@ -1206,6 +1239,7 @@
             const cost = parseFloat(document.getElementById('general_cost').value);
             const facility = document.getElementById('general_facility').value;
             const notes = document.getElementById('general_notes').value;
+            const unit = document.getElementById('general_unit') ? document.getElementById('general_unit').value : 'kg';
             
             if (!quantity || !cost) {
                 alert('総搬入量と総処分料を入力してください');
@@ -1221,6 +1255,7 @@
                 yearMonth: state.selectedYearMonth,
                 facility: facility,
                 quantity: quantity,
+                unit: unit,
                 totalCost: cost,
                 notes: notes
             });
