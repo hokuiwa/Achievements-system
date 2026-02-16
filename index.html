@@ -502,7 +502,7 @@
         // ========================================
         // 設定
         // ========================================
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbx5PgcaXjWPX4fNoHu_jy_dPPq82HIy624Gu8H64BFXdsug2VUdO0kmxkJ6NrvOJDVSsQ/exec'; // ← ここを変更
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzfLq9DVLLdjVw_cyD3gPoPBLF3RQaumJq3lOE5GjtRfDbYQJdXpt1lipeOGYiEnbrRVA/exec'; // ← ここを変更
 
         // ========================================
         // State
@@ -869,7 +869,39 @@
                 const csvText = e.target.result;
                 displayCSVPreview(csvText);
             };
+            // UTF-8とShift_JISの両方を試す
             reader.readAsText(file, 'Shift_JIS');
+        }
+
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                const nextChar = line[i + 1];
+                
+                if (char === '"') {
+                    if (inQuotes && nextChar === '"') {
+                        // エスケープされたダブルクォート
+                        current += '"';
+                        i++; // 次の文字をスキップ
+                    } else {
+                        // クォートの開始/終了
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    // カンマで区切る（クォート外のみ）
+                    result.push(current);
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current); // 最後のフィールド
+            
+            return result;
         }
 
         function displayCSVPreview(csvText) {
@@ -883,10 +915,28 @@
                 return;
             }
             
+            // データ行を検出（ヘッダーをスキップ）
+            let dataStartIndex = 0;
+            let dataLines = [];
+            
+            for (let i = 0; i < lines.length; i++) {
+                const cols = parseCSVLine(lines[i]);
+                // 顧客コードっぽい数字（1000番台など）が最初に来る行を探す
+                if (cols[0] && /^\d{4}/.test(cols[0].trim())) {
+                    dataLines.push(lines[i]);
+                    if (dataStartIndex === 0) dataStartIndex = i;
+                }
+            }
+            
+            if (dataLines.length === 0) {
+                preview.innerHTML = '<div class="text-danger">有効なデータ行が見つかりません</div>';
+                return;
+            }
+            
             let html = `
                 <div class="csv-preview">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <div><strong>${lines.length}件</strong>のデータを検出</div>
+                        <div><strong>${dataLines.length}件</strong>のデータを検出</div>
                         <button class="btn btn-primary" onclick="executeImport()">インポート実行</button>
                     </div>
                     <table class="csv-table">
@@ -899,17 +949,39 @@
                         <tbody>
             `;
             
-            for (let i = 0; i < Math.min(lines.length, 20); i++) {
-                const cols = lines[i].split(',');
+            for (let i = 0; i < Math.min(dataLines.length, 20); i++) {
+                const cols = parseCSVLine(dataLines[i]);
+                
+                // カラムマッピング（新フォーマット対応）
+                const code = cols[0] || '';
+                const name = cols[3] || '';
+                const monthlyFee = cols[6] || '0';
+                const cubic = cols[7] || '0';
+                const large = cols[8] || '0';
+                const cardboard = cols[10] || '0';
+                const industrial = cols[11] || '0';
+                const recycle = cols[12] || '0';
+                const construction = cols[13] || '0';
+                const appliance = cols[14] || '0';
+                const prepaid = cols[15] || '0';
+                
                 html += '<tr>';
-                for (let j = 0; j < 11; j++) {
-                    html += `<td>${cols[j] || ''}</td>`;
-                }
+                html += `<td>${code}</td>`;
+                html += `<td>${name}</td>`;
+                html += `<td>${monthlyFee}</td>`;
+                html += `<td>${cubic}</td>`;
+                html += `<td>${large}</td>`;
+                html += `<td>${cardboard}</td>`;
+                html += `<td>${industrial}</td>`;
+                html += `<td>${recycle}</td>`;
+                html += `<td>${construction}</td>`;
+                html += `<td>${appliance}</td>`;
+                html += `<td>${prepaid}</td>`;
                 html += '</tr>';
             }
             
-            if (lines.length > 20) {
-                html += `<tr><td colspan="11" style="text-align: center;" class="text-muted">...他 ${lines.length - 20}件</td></tr>`;
+            if (dataLines.length > 20) {
+                html += `<tr><td colspan="11" style="text-align: center;" class="text-muted">...他 ${dataLines.length - 20}件</td></tr>`;
             }
             
             html += '</tbody></table></div>';
@@ -941,6 +1013,39 @@
                     <!-- 一般廃棄物（月次一括） -->
                     <div class="form-section">
                         <h3>🗑️ 一般廃棄物（月次一括）</h3>
+                        
+                        ${generalCost.quantity ? `
+                            <!-- 登録済みデータ表示 -->
+                            <div style="background: #eff6ff; border: 2px solid #3b82f6; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                                <h4 style="color: #3b82f6; margin-bottom: 12px;">📊 登録済みデータ</h4>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">
+                                    <div>
+                                        <div class="profit-label">処分場</div>
+                                        <div class="profit-value">${generalCost.facility || '-'}</div>
+                                    </div>
+                                    <div>
+                                        <div class="profit-label">搬入量</div>
+                                        <div class="profit-value">${generalCost.quantity.toLocaleString()} ${generalCost.unit || 'kg'}</div>
+                                    </div>
+                                    <div>
+                                        <div class="profit-label">処分料</div>
+                                        <div class="profit-value">¥${generalCost.totalCost.toLocaleString()}</div>
+                                    </div>
+                                    <div>
+                                        <div class="profit-label">単価</div>
+                                        <div class="profit-value">¥${(generalCost.totalCost / generalCost.quantity).toFixed(2)}/${generalCost.unit || 'kg'}</div>
+                                    </div>
+                                </div>
+                                ${generalCost.notes ? `
+                                    <div style="margin-top: 12px; padding: 8px; background: white; border-radius: 6px; font-size: 13px;">
+                                        📝 ${generalCost.notes}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        ` : ''}
+                        
+                        <!-- 入力フォーム -->
+                        <h4 style="margin-bottom: 12px;">${generalCost.quantity ? '📝 データを更新' : '📝 新規登録'}</h4>
                         <div class="form-grid">
                             <div class="form-group">
                                 <label>総搬入量</label>
@@ -977,7 +1082,9 @@
                         ${generalCost.quantity && generalCost.totalCost ? `
                             <div class="unit-display">💡 単価: ¥${(generalCost.totalCost / generalCost.quantity).toFixed(2)}/${generalCost.unit || 'kg'}</div>
                         ` : ''}
-                        <button class="btn btn-primary" onclick="saveGeneral()" style="margin-top: 16px;">保存</button>
+                        <button class="btn btn-primary" onclick="saveGeneral()" style="margin-top: 16px;">
+                            ${generalCost.quantity ? '更新' : '保存'}
+                        </button>
                     </div>
                     
                     <!-- 産廃・建廃（処分場別明細） -->
@@ -1296,9 +1403,9 @@
                     
                     <h3 style="margin-bottom: 16px;">📊 カテゴリ別集計</h3>
                     <div class="category-grid">
-                        ${renderCategory('一般廃棄物', categorySummary.general)}
-                        ${renderCategory('産業廃棄物', categorySummary.industrial)}
-                        ${renderCategory('建設廃棄物', categorySummary.construction)}
+                        ${renderCategory('🗑️ 一般廃棄物', categorySummary.general, 'general')}
+                        ${renderCategory('🏭 産業廃棄物', categorySummary.industrial, 'industrial')}
+                        ${renderCategory('🏗️ 建設廃棄物', categorySummary.construction, 'construction')}
                     </div>
                     
                     <h3 style="margin: 32px 0 16px;">👥 顧客別分析（産廃・建廃）</h3>
@@ -1311,10 +1418,19 @@
             `;
         }
 
-        function renderCategory(title, data) {
+        function renderCategory(title, data, category) {
+            const isGeneral = category === 'general';
+            const generalCost = isGeneral ? state.disposalCosts.find(c => c.wasteType === '一般廃棄物') : null;
+            
             return `
                 <div class="category-card">
                     <div class="category-title">${title}</div>
+                    ${isGeneral && generalCost ? `
+                        <div style="background: #f8fafc; padding: 8px; border-radius: 6px; margin-bottom: 12px; font-size: 13px;">
+                            <div style="color: #64748b;">処分場: ${generalCost.facility || '-'}</div>
+                            <div style="color: #64748b;">搬入量: ${generalCost.quantity ? generalCost.quantity.toLocaleString() : '-'} ${generalCost.unit || 'kg'}</div>
+                        </div>
+                    ` : ''}
                     <div class="category-row">
                         <span>売上</span>
                         <span>${formatCurrency(data.sales)}</span>
