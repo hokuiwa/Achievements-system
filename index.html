@@ -502,7 +502,7 @@
         // ========================================
         // 設定
         // ========================================
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzfLq9DVLLdjVw_cyD3gPoPBLF3RQaumJq3lOE5GjtRfDbYQJdXpt1lipeOGYiEnbrRVA/exec'; // ← ここを変更
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbw3XFM8N5pHG1wsM8d4pRx4U_VcpcrxBGKTPzjay_vQ36iMxDuzByzyyaLNN-cYgTbhfw/exec'; // ← ここを変更
 
         // ========================================
         // State
@@ -533,21 +533,31 @@
         async function init() {
             console.log('🚀 実績管理システム v1.0');
             
-            // 年月セレクター生成
-            generateYearMonthSelector();
+            showLoading('初期化しています...');
             
-            // 今月を選択
-            const today = new Date();
-            state.selectedYearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-            document.getElementById('yearMonthSelector').value = state.selectedYearMonth;
-            
-            // マスタデータ読み込み
-            await loadCustomers();
-            await loadWasteTypes();
-            await loadFacilities();
-            
-            // メニュー表示
-            render();
+            try {
+                // 年月セレクター生成
+                generateYearMonthSelector();
+                
+                // 今月を選択
+                const today = new Date();
+                state.selectedYearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+                document.getElementById('yearMonthSelector').value = state.selectedYearMonth;
+                
+                // マスタデータ読み込み
+                await loadCustomers();
+                await loadWasteTypes();
+                await loadFacilities();
+                
+                // 今月のデータを読み込み
+                await loadSalesData(state.selectedYearMonth);
+                await loadDisposalCosts(state.selectedYearMonth);
+                
+                // メニュー表示
+                render();
+            } finally {
+                hideLoading();
+            }
         }
 
         // ========================================
@@ -666,9 +676,10 @@
                 });
                 if (result.success) {
                     await loadDisposalCosts(state.selectedYearMonth);
-                    render();
-                    alert('一般廃棄物処分料を保存しました');
+                    // アラートは呼び出し元で表示
+                    return true;
                 }
+                return false;
             } finally {
                 hideLoading();
             }
@@ -746,14 +757,20 @@
             }
         }
 
-        function selectYearMonth(yearMonth) {
+        async function selectYearMonth(yearMonth) {
             state.selectedYearMonth = yearMonth;
-            loadSalesData(yearMonth);
-            loadDisposalCosts(yearMonth);
+            showLoading('データを読み込んでいます...');
+            try {
+                await loadSalesData(yearMonth);
+                await loadDisposalCosts(yearMonth);
+                state.profitAnalysis = null; // 粗利分析をクリア
+            } finally {
+                hideLoading();
+            }
             render();
         }
 
-        function switchView(view) {
+        async function switchView(view) {
             state.currentView = view;
             if (view === 'import') {
                 // CSVインポート画面を開く前にデータをクリア
@@ -762,7 +779,10 @@
                     if (preview) preview.innerHTML = '';
                 }, 0);
             } else if (view === 'disposal') {
-                loadDisposalCosts(state.selectedYearMonth);
+                // 処分料画面を開く時にデータを読み込む
+                showLoading('データを読み込んでいます...');
+                await loadDisposalCosts(state.selectedYearMonth);
+                hideLoading();
             } else if (view === 'analysis') {
                 state.profitAnalysis = null;
             }
@@ -800,26 +820,91 @@
         }
 
         function renderMenu() {
+            const hasData = state.sales.length > 0;
+            const hasCosts = state.disposalCosts.length > 0;
+            const hasAnalysis = state.profitAnalysis !== null;
+            
+            const generalCost = state.disposalCosts.find(c => c.wasteType === '一般廃棄物');
+            const otherCosts = state.disposalCosts.filter(c => c.wasteType !== '一般廃棄物');
+            
             return `
+                ${hasData || hasCosts ? `
+                    <!-- データ状況サマリー -->
+                    <div class="card" style="margin-bottom: 24px;">
+                        <h2>📊 ${state.selectedYearMonth} のデータ状況</h2>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 20px;">
+                            <div style="background: ${hasData ? '#dcfce7' : '#fef2f2'}; padding: 20px; border-radius: 12px; text-align: center;">
+                                <div style="font-size: 40px; margin-bottom: 8px;">${hasData ? '✅' : '⏳'}</div>
+                                <div style="font-weight: 700; color: #1e293b; margin-bottom: 4px;">売上データ</div>
+                                <div style="color: #64748b; font-size: 14px;">
+                                    ${hasData ? `${state.sales.length}件 登録済み` : '未登録'}
+                                </div>
+                            </div>
+                            <div style="background: ${generalCost ? '#dcfce7' : '#fef2f2'}; padding: 20px; border-radius: 12px; text-align: center;">
+                                <div style="font-size: 40px; margin-bottom: 8px;">${generalCost ? '✅' : '⏳'}</div>
+                                <div style="font-weight: 700; color: #1e293b; margin-bottom: 4px;">一般廃棄物</div>
+                                <div style="color: #64748b; font-size: 14px;">
+                                    ${generalCost ? `${generalCost.quantity.toLocaleString()} ${generalCost.unit || 'kg'}` : '未登録'}
+                                </div>
+                            </div>
+                            <div style="background: ${otherCosts.length > 0 ? '#dcfce7' : '#fef2f2'}; padding: 20px; border-radius: 12px; text-align: center;">
+                                <div style="font-size: 40px; margin-bottom: 8px;">${otherCosts.length > 0 ? '✅' : '⏳'}</div>
+                                <div style="font-weight: 700; color: #1e293b; margin-bottom: 4px;">産廃・建廃</div>
+                                <div style="color: #64748b; font-size: 14px;">
+                                    ${otherCosts.length > 0 ? `${otherCosts.length}件 登録済み` : '未登録'}
+                                </div>
+                            </div>
+                            <div style="background: ${hasAnalysis ? '#dcfce7' : '#fef2f2'}; padding: 20px; border-radius: 12px; text-align: center;">
+                                <div style="font-size: 40px; margin-bottom: 8px;">${hasAnalysis ? '✅' : '⏳'}</div>
+                                <div style="font-weight: 700; color: #1e293b; margin-bottom: 4px;">粗利分析</div>
+                                <div style="color: #64748b; font-size: 14px;">
+                                    ${hasAnalysis ? '計算済み' : '未計算'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <!-- メインメニュー -->
+                <div class="card" style="margin-bottom: 24px;">
+                    <h2>📋 メニュー</h2>
+                    <div class="subtitle">実績管理の各機能にアクセスできます</div>
+                </div>
+                
                 <div class="menu-grid">
                     <div class="menu-card" onclick="switchView('import')">
                         <div class="menu-icon">📥</div>
                         <div class="menu-title">CSVインポート</div>
                         <div class="menu-desc">売上データを取り込む</div>
+                        ${hasData ? '<div style="margin-top: 12px; color: #10b981; font-weight: 600;">✓ 登録済み</div>' : ''}
                     </div>
                     
                     <div class="menu-card" onclick="switchView('disposal')">
                         <div class="menu-icon">💰</div>
                         <div class="menu-title">処分料入力</div>
                         <div class="menu-desc">処分料を登録する</div>
+                        ${hasCosts ? '<div style="margin-top: 12px; color: #10b981; font-weight: 600;">✓ 登録済み</div>' : ''}
                     </div>
                     
                     <div class="menu-card" onclick="switchView('analysis')">
                         <div class="menu-icon">📈</div>
                         <div class="menu-title">粗利率分析</div>
                         <div class="menu-desc">顧客別の粗利を確認</div>
+                        ${hasAnalysis ? '<div style="margin-top: 12px; color: #10b981; font-weight: 600;">✓ 計算済み</div>' : ''}
                     </div>
                 </div>
+                
+                ${!hasData && !hasCosts ? `
+                    <!-- 初回ガイド -->
+                    <div class="card" style="margin-top: 24px; background: #eff6ff; border: 2px solid #3b82f6;">
+                        <h3 style="color: #3b82f6; margin-bottom: 16px;">🚀 はじめての実績管理</h3>
+                        <div style="color: #1e293b; line-height: 1.8;">
+                            <p style="margin-bottom: 12px;"><strong>Step 1:</strong> CSVインポートで売上データを取り込みます</p>
+                            <p style="margin-bottom: 12px;"><strong>Step 2:</strong> 処分料入力で処分料を登録します</p>
+                            <p style="margin-bottom: 12px;"><strong>Step 3:</strong> 粗利率分析で顧客別の粗利を確認します</p>
+                        </div>
+                    </div>
+                ` : ''}
             `;
         }
 
@@ -952,18 +1037,29 @@
             for (let i = 0; i < Math.min(dataLines.length, 20); i++) {
                 const cols = parseCSVLine(dataLines[i]);
                 
-                // カラムマッピング（新フォーマット対応）
+                // カラムマッピング（正しい列番号）
+                // A列(0): コード
+                // D列(3): 顧客名
+                // F列(5): 月極
+                // G列(6): 一般㎥
+                // H列(7): 粗大
+                // J列(9): ダンボール
+                // K列(10): 産廃
+                // L列(11): 循環税
+                // M列(12): 建廃
+                // N列(13): 廃家電
+                // O列(14): プリペイド+金属
                 const code = cols[0] || '';
                 const name = cols[3] || '';
-                const monthlyFee = cols[6] || '0';
-                const cubic = cols[7] || '0';
-                const large = cols[8] || '0';
-                const cardboard = cols[10] || '0';
-                const industrial = cols[11] || '0';
-                const recycle = cols[12] || '0';
-                const construction = cols[13] || '0';
-                const appliance = cols[14] || '0';
-                const prepaid = cols[15] || '0';
+                const monthlyFee = cols[5] || '0';
+                const cubic = cols[6] || '0';
+                const large = cols[7] || '0';
+                const cardboard = cols[9] || '0';
+                const industrial = cols[10] || '0';
+                const recycle = cols[11] || '0';
+                const construction = cols[12] || '0';
+                const appliance = cols[13] || '0';
+                const prepaid = cols[14] || '0';
                 
                 html += '<tr>';
                 html += `<td>${code}</td>`;
@@ -1358,7 +1454,7 @@
                 return;
             }
             
-            await saveGeneralDisposalCost({
+            const success = await saveGeneralDisposalCost({
                 yearMonth: state.selectedYearMonth,
                 facility: facility,
                 quantity: quantity,
@@ -1366,6 +1462,18 @@
                 totalCost: cost,
                 notes: notes
             });
+            
+            if (success) {
+                // データを再読み込み
+                console.log('一般廃棄物保存後、データ再読み込み...');
+                await loadDisposalCosts(state.selectedYearMonth);
+                console.log('処分料データ:', state.disposalCosts);
+                
+                // 画面を再描画
+                render();
+                
+                alert('一般廃棄物の処分料を保存しました');
+            }
         }
 
         // 他の処分料関連関数は省略（実装済み）
