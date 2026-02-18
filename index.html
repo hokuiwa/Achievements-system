@@ -6,7 +6,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <title>実績管理システム v2.0</title>
+  <title>実績管理システム v2.4</title>
 
   <style>
     *{margin:0;padding:0;box-sizing:border-box;}
@@ -17,13 +17,15 @@
     .container{max-width:1400px;margin:0 auto;padding:18px;}
     .topbar{
       position:sticky;top:0;z-index:1000;
-      background:rgba(241,245,249,.85);
+      background:rgba(241,245,249,.95);
       backdrop-filter: blur(10px);
       border-bottom:1px solid #e2e8f0;
+      box-shadow:0 1px 3px rgba(0,0,0,.05);
     }
     .topbar-inner{
       max-width:1400px;margin:0 auto;padding:14px 18px;
       display:flex;gap:14px;align-items:center;justify-content:space-between;
+      flex-wrap:wrap;
     }
     .brand{
       display:flex;align-items:flex-start;gap:10px;
@@ -31,7 +33,7 @@
     }
     .brand h1{font-size:18px;font-weight:800;letter-spacing:.2px;}
     .brand .sub{font-size:12px;color:#64748b;margin-top:2px;}
-    .right-controls{display:flex;gap:10px;align-items:center;}
+    .right-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
     .month-selector{
       padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;
       font-size:13px;font-weight:700;background:white;cursor:pointer;
@@ -41,10 +43,11 @@
     }
     .tab{
       border:1px solid #e2e8f0;background:white;color:#0f172a;
-      padding:10px 12px;border-radius:999px;
+      padding:10px 14px;border-radius:999px;
       cursor:pointer;font-weight:800;font-size:13px;
       transition:.15s;
       display:inline-flex;align-items:center;gap:8px;
+      white-space:nowrap;
     }
     .tab:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(15,23,42,.08);}
     .tab.active{
@@ -68,7 +71,7 @@
     .grid-2{grid-template-columns:1fr 1fr;}
     .grid-3{grid-template-columns:repeat(3,1fr);}
     .grid-4{grid-template-columns:repeat(4,1fr);}
-    @media (max-width:1100px){
+    @media (max-width:900px){
       .grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}
       .brand{min-width:auto;}
     }
@@ -79,31 +82,30 @@
       transition:.15s;display:inline-flex;align-items:center;gap:8px;
     }
     .btn-primary{background:#3b82f6;color:white;}
-    .btn-primary:hover{background:#2563eb;}
+    .btn-primary:hover{background:#2563eb;transform:translateY(-1px);}
     .btn-secondary{background:#e2e8f0;color:#0f172a;}
-    .btn-secondary:hover{background:#cbd5e1;}
+    .btn-secondary:hover{background:#cbd5e1;transform:translateY(-1px);}
     .btn-danger{
       background:#ef4444;color:white;padding:8px 12px;
       border-radius:10px;font-size:12px;font-weight:900;
     }
-    .btn-danger:hover{background:#dc2626;}
+    .btn-danger:hover{background:#dc2626;transform:translateY(-1px);}
     .btn-ghost{
       background:transparent;border:1px solid #e2e8f0;color:#0f172a;
     }
     .btn-ghost:hover{background:#f8fafc;}
 
     .status-grid{
-      display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:14px;
+      display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:14px;
     }
-    @media (max-width:1100px){ .status-grid{grid-template-columns:1fr;} }
     .status-card{
       border:1px solid #e2e8f0;background:#fff;border-radius:16px;
-      padding:16px;cursor:pointer;transition:.15s;
+      padding:18px;cursor:pointer;transition:.15s;
     }
     .status-card:hover{transform:translateY(-2px);box-shadow:0 12px 24px rgba(15,23,42,.10);}
     .status-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
-    .status-title{font-weight:900;}
-    .status-meta{font-size:12px;color:#64748b;line-height:1.3;}
+    .status-title{font-weight:900;font-size:14px;}
+    .status-meta{font-size:12px;color:#64748b;line-height:1.4;margin:8px 0;}
     .pill{
       padding:6px 10px;border-radius:999px;font-size:12px;font-weight:900;
       border:1px solid #e2e8f0;background:#f8fafc;color:#0f172a;
@@ -112,34 +114,37 @@
     .pill.ng{background:#fef2f2;border-color:#fecaca;color:#7f1d1d;}
 
     .panel{
-      background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:18px;
+      background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:20px;
     }
-    .panel h3{font-size:16px;font-weight:900;margin-bottom:12px;display:flex;gap:8px;align-items:center;}
+    .panel h3{font-size:16px;font-weight:900;margin-bottom:14px;display:flex;gap:8px;align-items:center;}
     .form-grid{
-      display:grid;grid-template-columns:repeat(4,1fr);gap:12px;
+      display:grid;grid-template-columns:1fr 1fr;gap:14px;
     }
-    @media (max-width:1100px){.form-grid{grid-template-columns:1fr;}}
+    @media (min-width:1400px){.form-grid.wide{grid-template-columns:repeat(3,1fr);}}
+    @media (max-width:768px){.form-grid{grid-template-columns:1fr;}}
     .form-group{display:flex;flex-direction:column;gap:8px;}
     .form-group label{font-size:13px;font-weight:900;color:#334155;}
     .form-group input,.form-group select{
-      padding:10px 12px;border:1px solid #cbd5e1;border-radius:12px;
-      font-size:14px;background:white;
+      padding:11px 13px;border:1px solid #cbd5e1;border-radius:12px;
+      font-size:14px;background:white;transition:.15s;
     }
-    .hint{font-size:12px;color:#64748b;line-height:1.4;}
+    .form-group input:focus,.form-group select:focus{
+      outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1);
+    }
+    .hint{font-size:12px;color:#64748b;line-height:1.4;margin-top:4px;}
     .kpi{
-      display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px;
+      display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:14px;
     }
-    @media (max-width:1100px){.kpi{grid-template-columns:1fr;}}
     .kpi-item{
-      background:white;border:1px solid #e2e8f0;border-radius:14px;padding:14px;
+      background:white;border:1px solid #e2e8f0;border-radius:14px;padding:16px;
     }
     .kpi-label{font-size:12px;color:#64748b;font-weight:800;}
-    .kpi-value{font-size:18px;font-weight:1000;margin-top:6px;}
+    .kpi-value{font-size:20px;font-weight:1000;margin-top:6px;}
 
     .split{
-      display:grid;grid-template-columns:420px 1fr;gap:14px;align-items:start;
+      display:grid;grid-template-columns:520px 1fr;gap:18px;align-items:start;
     }
-    @media (max-width:1100px){.split{grid-template-columns:1fr;}}
+    @media (max-width:1200px){.split{grid-template-columns:1fr;}}
 
     .csv-zone{
       border:2px dashed #cbd5e1;border-radius:16px;
@@ -162,28 +167,27 @@
     .success{color:#10b981;}
 
     .item{
-      background:white;border:1px solid #e2e8f0;border-radius:14px;padding:14px;
+      background:white;border:1px solid #e2e8f0;border-radius:14px;padding:16px;
     }
-    .item-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;}
-    .item-title{font-weight:1000;font-size:14px;}
-    .item-sub{font-size:12px;color:#64748b;margin-top:4px;line-height:1.35;}
+    .item-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;}
+    .item-title{font-weight:1000;font-size:15px;}
+    .item-sub{font-size:12px;color:#64748b;margin-top:5px;line-height:1.4;}
     .item-grid{
-      display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+      display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;
       margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0;
     }
-    @media (max-width:1100px){.item-grid{grid-template-columns:1fr;}}
-    .mini-label{font-size:11px;color:#64748b;font-weight:900;}
-    .mini-value{font-size:14px;font-weight:1000;margin-top:4px;}
+    .mini-label{font-size:11px;color:#64748b;font-weight:900;text-transform:uppercase;}
+    .mini-value{font-size:15px;font-weight:1000;margin-top:4px;}
 
     .profit-card{
-      background:white;border:1px solid #e2e8f0;border-radius:16px;padding:18px;margin-top:12px;
+      background:white;border:1px solid #e2e8f0;border-radius:16px;padding:20px;margin-top:12px;
     }
     .profit-card.danger{border-left:5px solid #ef4444;background:#fef2f2;}
     .profit-card.warning{border-left:5px solid #f59e0b;background:#fffbeb;}
     .profit-card.success{border-left:5px solid #10b981;background:#f0fdf4;}
-    .profit-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;}
+    .profit-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap;}
     .profit-rate{
-      padding:8px 12px;border-radius:12px;font-weight:1000;font-size:16px;color:white;
+      padding:8px 14px;border-radius:12px;font-weight:1000;font-size:16px;color:white;
     }
     .profit-rate.danger{background:#ef4444;}
     .profit-rate.warning{background:#f59e0b;}
@@ -195,17 +199,18 @@
 
     /* Loading */
     .loading{
-      position:fixed;inset:0;background:rgba(15,23,42,.45);
+      position:fixed;inset:0;background:rgba(15,23,42,.6);
       display:flex;justify-content:center;align-items:center;z-index:9999;
+      backdrop-filter:blur(4px);
     }
     .loading-content{
-      background:white;border-radius:18px;padding:24px 26px;text-align:center;
-      border:1px solid #e2e8f0;box-shadow:0 18px 40px rgba(0,0,0,.18);
+      background:white;border-radius:18px;padding:28px 30px;text-align:center;
+      border:1px solid #e2e8f0;box-shadow:0 20px 40px rgba(0,0,0,.2);
       width:min(420px,calc(100vw - 32px));
     }
     .spinner{
       border:4px solid #e2e8f0;border-top:4px solid #3b82f6;border-radius:50%;
-      width:42px;height:42px;animation:spin 1s linear infinite;margin:0 auto 14px;
+      width:44px;height:44px;animation:spin 1s linear infinite;margin:0 auto 16px;
     }
     @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
 
@@ -213,29 +218,39 @@
     .toast{
       position:fixed;right:16px;bottom:16px;z-index:10000;
       background:#0f172a;color:#fff;border-radius:16px;
-      padding:12px 14px;border:1px solid rgba(255,255,255,.12);
-      box-shadow:0 16px 34px rgba(0,0,0,.18);
-      opacity:0;transform:translateY(10px);transition:.18s;
+      padding:14px 16px;border:1px solid rgba(255,255,255,.12);
+      box-shadow:0 16px 34px rgba(0,0,0,.22);
+      opacity:0;transform:translateY(10px);transition:.2s;
       width:min(420px,calc(100vw - 32px));
-      font-size:13px;font-weight:900;line-height:1.35;
+      font-size:13px;font-weight:900;line-height:1.4;
       display:flex;gap:10px;align-items:flex-start;
     }
     .toast.show{opacity:1;transform:translateY(0);}
-    .toast .ticon{font-size:16px;line-height:1.2;}
-    .toast-success{background:#065f46;}
-    .toast-danger{background:#7f1d1d;}
-    .toast-warning{background:#92400e;}
+    .toast .ticon{font-size:18px;line-height:1;}
+    .toast-success{background:#065f46;border-color:#10b981;}
+    .toast-danger{background:#7f1d1d;border-color:#ef4444;}
+    .toast-warning{background:#92400e;border-color:#f59e0b;}
     .toast-info{background:#0f172a;}
 
     /* Inline alert */
     .inline-alert{
       background:#fff7ed;border:1px solid #fed7aa;border-radius:16px;
-      padding:14px;color:#7c2d12;font-size:13px;font-weight:900;line-height:1.5;
+      padding:16px;color:#7c2d12;font-size:13px;font-weight:900;line-height:1.5;
       margin-top:14px;
     }
 
     /* Small anchors offset for sticky topbar */
-    .anchor{scroll-margin-top:110px;}
+    .anchor{scroll-margin-top:120px;}
+
+    /* Input highlights */
+    .highlight-box{
+      border:2px solid #3b82f6;background:#eff6ff;border-radius:14px;
+      padding:14px;margin-top:12px;
+    }
+    .highlight-box .item-title{color:#1e40af;}
+
+    /* Better spacing */
+    .section-gap{margin-top:24px;}
   </style>
 </head>
 
@@ -243,8 +258,8 @@
   <div id="loading" class="loading" style="display:none;">
     <div class="loading-content">
       <div class="spinner"></div>
-      <div id="loadingText" style="font-weight:1000;">読み込み中...</div>
-      <div class="muted" style="margin-top:8px;font-size:12px;">通信状況により少し時間がかかる場合があります</div>
+      <div id="loadingText" style="font-weight:1000;font-size:15px;">読み込み中...</div>
+      <div class="muted" style="margin-top:10px;font-size:12px;">通信状況により少し時間がかかる場合があります</div>
     </div>
   </div>
 
@@ -253,14 +268,14 @@
       <div class="brand">
         <div style="font-size:22px;">📊</div>
         <div>
-          <h1>実績管理システム <span class="badge">v2.0</span></h1>
-          <div class="sub">売上・処分料の管理と粗利分析（PC推奨）</div>
+          <h1>実績管理システム <span class="badge">v2.4</span></h1>
+          <div class="sub">売上・処分料の管理と粗利分析</div>
         </div>
       </div>
 
       <div class="tabs" role="tablist" aria-label="メニュー">
         <button class="tab" id="tab_dashboard" onclick="switchView('dashboard')" type="button">🏠 ダッシュボード</button>
-        <button class="tab" id="tab_import" onclick="switchView('import')" type="button">📥 売上（CSV）</button>
+        <button class="tab" id="tab_import" onclick="switchView('import')" type="button">📥 売上CSV</button>
         <button class="tab" id="tab_disposal" onclick="switchView('disposal')" type="button">💰 処分料</button>
         <button class="tab" id="tab_analysis" onclick="switchView('analysis')" type="button">📈 粗利</button>
       </div>
@@ -334,7 +349,7 @@
     window.addEventListener('DOMContentLoaded', init);
 
     async function init() {
-      console.log('🚀 実績管理システム v2.0');
+      console.log('🚀 実績管理システム v2.4');
       showLoading('初期化しています...');
 
       try {
@@ -381,7 +396,7 @@
       setTimeout(() => {
         el.classList.remove('show');
         setTimeout(() => el.remove(), 200);
-      }, 2400);
+      }, 2600);
     }
 
     function escapeHtml(str) {
@@ -407,9 +422,9 @@
         disposal: 'tab_disposal',
         analysis: 'tab_analysis'
       };
-      Object.values(map).forEach(id => document.getElementById(id).classList.remove('active'));
+      Object.values(map).forEach(id => document.getElementById(id)?.classList.remove('active'));
       const id = map[view];
-      if (id) document.getElementById(id).classList.add('active');
+      if (id) document.getElementById(id)?.classList.add('active');
     }
 
     function goTo(view, anchorId = null) {
@@ -631,9 +646,6 @@
         state.currentCSV = null;
         state.currentCSVMeta = { detected: 0, errors: [] };
       }
-      if (view === 'analysis') {
-        // 表示直前に未計算ならそのまま（ボタン押させる）
-      }
 
       render();
     }
@@ -761,13 +773,13 @@
           </div>
 
           ${(!hasSales && !hasGeneral && !hasOther) ? `
-            <div class="panel" style="margin-top:14px;">
+            <div class="panel section-gap">
               <h3>🚀 はじめての手順</h3>
               <div class="hint">
                 ① 売上をCSVで取り込み → ② 一般廃棄物を月次で入力 → ③ 建産廃の明細を入力 → ④ 粗利を見る<br/>
                 ※ 一般は按分せず「カテゴリ粗利」でOK（いまの設計で正解）
               </div>
-              <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+              <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
                 <button class="btn btn-primary" onclick="goTo('import','importTop')" type="button">📥 まずCSVを取り込む</button>
                 <button class="btn btn-secondary" onclick="goTo('disposal','generalSection')" type="button">🗑️ 一般を入力</button>
               </div>
@@ -785,7 +797,7 @@
             <div class="pill ${ok ? 'ok' : 'ng'}">${ok ? 'OK' : '未'}</div>
           </div>
           <div class="status-meta">${escapeHtml(meta)}</div>
-          <div style="margin-top:12px;">
+          <div style="margin-top:14px;">
             <span class="btn btn-ghost" style="pointer-events:none;padding:8px 12px;border-radius:999px;font-size:12px;">
               👉 ${escapeHtml(action)}
             </span>
@@ -795,21 +807,17 @@
     }
 
     function sumSalesAll() {
-      // salesのレコード構造はGAS側次第なので「金額らしきもの」を安全に集計
-      // よくあるキー: total, amount, sales, totalSales など
       let total = 0;
       for (const s of state.sales || []) {
         const v = Number(s.total ?? s.amount ?? s.sales ?? s.totalSales ?? 0);
         if (!Number.isNaN(v)) total += v;
       }
-      // もし個別項目列が入ってるなら、GASで合計を持たせた方が正確
       return total;
     }
 
     function sumCostsAll() {
       let total = 0;
       for (const c of state.disposalCosts || []) {
-        // generalは totalCost を持ってる想定。明細は quantity*unitPrice or totalCost
         const v = Number(c.totalCost ?? ((Number(c.quantity||0))*(Number(c.unitPrice||0))) ?? 0);
         if (!Number.isNaN(v)) total += v;
       }
@@ -833,18 +841,18 @@
           <div class="csv-zone" onclick="document.getElementById('csvFile').click()">
             <div style="font-size:52px;margin-bottom:10px;">📄</div>
             <div style="font-size:16px;font-weight:1000;margin-bottom:6px;">CSVファイルを選択</div>
-            <div class="muted" style="font-size:13px;">ドラッグ＆ドロップではなく、クリックで選ぶ方式</div>
+            <div class="muted" style="font-size:13px;">クリックしてファイルを選択してください</div>
             <input type="file" id="csvFile" accept=".csv" style="display:none;" onchange="handleCSV(event)" />
           </div>
 
           <div id="csvPreviewArea"></div>
 
-          <div class="panel" style="margin-top:14px;">
+          <div class="panel section-gap">
             <h3>📋 CSVフォーマット（例）</h3>
-            <pre style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:12px;overflow:auto;font-size:12px;">コード,顧客名,月極,一般㎥,粗大,ダンボール,産廃,循環税,建廃,廃家電,プリペイド+金属
+            <pre style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:14px;overflow:auto;font-size:12px;line-height:1.6;">コード,顧客名,月極,一般㎥,粗大,ダンボール,産廃,循環税,建廃,廃家電,プリペイド+金属
 1100,佐藤商店,10000,0,0,0,0,0,0,0,0
 1101,鈴木商事,0,0,0,5000,0,0,0,0,0</pre>
-            <div class="hint" style="margin-top:10px;">
+            <div class="hint" style="margin-top:12px;">
               ※ 顧客名は省略可能（顧客コードから自動取得）<br/>
               ※ 文字化けする場合は、Excel側で「CSV UTF-8」で保存して試してみてください
             </div>
@@ -878,7 +886,6 @@
     }
 
     function looksBroken(text) {
-      // ざっくり判定：置換文字が多い/制御文字が多いとき
       const s = String(text || '');
       const bad = (s.match(/\uFFFD/g) || []).length;
       return bad >= 10;
@@ -935,7 +942,7 @@
         return;
       }
 
-      // 簡易チェック（数値列の変な値）
+      // 簡易チェック
       const errors = [];
       for (let i = 0; i < Math.min(dataLines.length, 200); i++) {
         const cols = parseCSVLine(dataLines[i]);
@@ -956,9 +963,9 @@
 
       let html = `
         <div class="csv-preview">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
             <div style="font-weight:1000;">
-              検出：<span style="font-size:16px;">${dataLines.length}件</span>
+              検出：<span style="font-size:16px;color:#3b82f6;">${dataLines.length}件</span>
               ${errors.length ? `<span class="muted" style="margin-left:10px;">（注意：チェック警告 ${errors.length}件）</span>` : ``}
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -976,7 +983,7 @@
             </div>
           ` : ``}
 
-          <div style="margin-top:12px;">
+          <div style="margin-top:14px;overflow-x:auto;">
             <table>
               <thead>
                 <tr>
@@ -990,7 +997,6 @@
       for (let i = 0; i < Math.min(dataLines.length, 20); i++) {
         const cols = parseCSVLine(dataLines[i]);
 
-        // 既存ロジックのマッピング
         const code = cols[0] || '';
         const name = cols[3] || '';
         const monthlyFee = cols[5] || '0';
@@ -1091,42 +1097,24 @@
                 <h3>🗑️ 一般廃棄物（月次一括）</h3>
 
                 ${generalCost.quantity ? `
-                  <div class="item" style="margin-bottom:12px;background:#eff6ff;border-color:#bfdbfe;">
-                    <div class="item-head">
-                      <div>
-                        <div class="item-title">📌 登録済み</div>
-                        <div class="item-sub">
-                          処分場：${escapeHtml(generalCost.facility||'-')}<br/>
-                          搬入量：${Number(generalCost.quantity||0).toLocaleString()} ${escapeHtml(generalCost.unit||'kg')}<br/>
-                          処分料：${formatCurrency(generalCost.totalCost||0)}
-                        </div>
-                      </div>
-                      <div class="pill ok">OK</div>
-                    </div>
-                    <div class="item-grid">
-                      <div>
-                        <div class="mini-label">単価</div>
-                        <div class="mini-value">${formatCurrency((Number(generalCost.totalCost||0) / Math.max(Number(generalCost.quantity||0),1)).toFixed(2))}/${escapeHtml(generalCost.unit||'kg')}</div>
-                      </div>
-                      <div>
-                        <div class="mini-label">備考</div>
-                        <div class="mini-value">${escapeHtml(generalCost.notes||'-')}</div>
-                      </div>
-                      <div>
-                        <div class="mini-label">対象年月</div>
-                        <div class="mini-value">${escapeHtml(state.selectedYearMonth)}</div>
-                      </div>
+                  <div class="highlight-box" style="margin-bottom:14px;">
+                    <div class="item-title">📌 登録済みデータ</div>
+                    <div class="item-sub" style="margin-top:6px;">
+                      処分場：${escapeHtml(generalCost.facility||'-')}<br/>
+                      搬入量：${Number(generalCost.quantity||0).toLocaleString()} ${escapeHtml(generalCost.unit||'kg')}<br/>
+                      処分料：${formatCurrency(generalCost.totalCost||0)}<br/>
+                      単価：${formatCurrency((Number(generalCost.totalCost||0) / Math.max(Number(generalCost.quantity||0),1)).toFixed(2))}/${escapeHtml(generalCost.unit||'kg')}
                     </div>
                   </div>
                 ` : ``}
 
-                <div class="form-grid">
+                <div class="form-grid wide">
                   <div class="form-group">
                     <label>総搬入量 <span class="danger">*</span></label>
                     <input type="number" id="general_quantity" value="${escapeHtml(generalCost.quantity||'')}" placeholder="8000" step="0.01" />
                   </div>
                   <div class="form-group">
-                    <label>単位</label>
+                    <label>単位 <span class="danger">*</span></label>
                     <select id="general_unit">
                       <option value="kg" ${(generalCost.unit || 'kg') === 'kg' ? 'selected' : ''}>kg</option>
                       <option value="㎥" ${generalCost.unit === '㎥' ? 'selected' : ''}>㎥</option>
@@ -1137,12 +1125,13 @@
                     <label>総処分料（円） <span class="danger">*</span></label>
                     <input type="number" id="general_cost" value="${escapeHtml(generalCost.totalCost||'')}" placeholder="200000" />
                   </div>
-                  <div class="form-group">
+                  <div class="form-group" style="grid-column:1/-1;">
                     <label>処分場 <span class="danger">*</span></label>
                     <input type="text" id="general_facility" value="${escapeHtml(generalCost.facility||'')}" placeholder="角山開発" list="generalFacilityList" />
                     <datalist id="generalFacilityList">
                       ${(state.facilities||[]).map(f => `<option value="${escapeHtml(f.name)}">${escapeHtml(f.name)}</option>`).join('')}
                     </datalist>
+                    <div class="hint">リストから選択、または自由入力OK</div>
                   </div>
                   <div class="form-group" style="grid-column:1/-1;">
                     <label>備考</label>
@@ -1150,19 +1139,19 @@
                   </div>
                 </div>
 
-                <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+                <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
                   <button class="btn btn-primary" type="button" onclick="saveGeneral()">
                     ✅ ${generalCost.quantity ? '更新' : '保存'}
                   </button>
                   <button class="btn btn-secondary" type="button" onclick="goTo('dashboard','dashTop')">🏠 戻る</button>
                 </div>
 
-                <div class="hint" style="margin-top:10px;">
+                <div class="hint" style="margin-top:12px;">
                   💡 一般廃棄物は按分せず、カテゴリ粗利で管理（実務に合う設計）
                 </div>
               </div>
 
-              <div id="otherSection" class="anchor" style="margin-top:14px;"></div>
+              <div id="otherSection" class="anchor section-gap"></div>
               <div class="panel">
                 <h3>🏭 建産廃（明細入力）</h3>
 
@@ -1188,7 +1177,7 @@
                     <datalist id="customerCodes">
                       ${buildCustomerCodeOptions()}
                     </datalist>
-                    <div class="hint">入力すると候補が出ます（顧客名も自動表示）</div>
+                    <div class="hint">候補が出ます</div>
                   </div>
 
                   <div class="form-group">
@@ -1200,7 +1189,7 @@
                     <datalist id="wasteTypeList">
                       ${(state.wasteTypes||[]).filter(w => w.category !== 'general').map(w => `<option value="${escapeHtml(w.name)}">${escapeHtml(w.name)}</option>`).join('')}
                     </datalist>
-                    <div class="hint">分類が曖昧でもOK（実績は“建産廃”としてまとめて扱う）</div>
+                    <div class="hint">選択または自由入力</div>
                   </div>
 
                   <div class="form-group">
@@ -1233,20 +1222,19 @@
                 </div>
 
                 <div id="customerNameDisplay" style="margin-top:12px;display:none;">
-                  <div class="item" style="border-color:#e0e7ff;background:#eef2ff;">
+                  <div class="item" style="border-color:#bfdbfe;background:#eff6ff;">
                     <div class="item-title">👤 顧客名：<span id="customerNameText"></span></div>
-                    <div class="item-sub">※ 顧客マスタ or 売上データから補完します</div>
                   </div>
                 </div>
 
                 <div id="totalCostDisplay" style="margin-top:12px;display:none;">
-                  <div class="item" style="border-color:#bfdbfe;background:#eff6ff;">
-                    <div class="item-title">合計金額：<span id="totalCostText" style="color:#2563eb;"></span></div>
-                    <div class="item-sub">数量 × 単価</div>
+                  <div class="highlight-box">
+                    <div class="item-title">合計金額：<span id="totalCostText"></span></div>
+                    <div class="hint" style="margin-top:4px;">数量 × 単価</div>
                   </div>
                 </div>
 
-                <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+                <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
                   <button class="btn btn-primary" type="button" onclick="addNewDisposal()">✅ 登録</button>
                   <button class="btn btn-secondary" type="button" onclick="resetNewDisposal()">🧹 入力クリア</button>
                 </div>
@@ -1258,7 +1246,7 @@
               <div class="panel">
                 <h3>📋 建産廃 明細一覧</h3>
 
-                <div class="form-grid" style="margin-bottom:10px;">
+                <div class="form-grid" style="margin-bottom:12px;">
                   <div class="form-group" style="grid-column:1/-1;">
                     <label>検索（顧客/処分場/廃棄物/コード）</label>
                     <input type="text" value="${escapeHtml(state.listFilter.q)}"
@@ -1279,21 +1267,31 @@
                       ${uniqueWasteTypes(otherCostsRaw).map(w => `<option value="${escapeHtml(w)}" ${state.listFilter.wasteType===w?'selected':''}>${escapeHtml(w)}</option>`).join('')}
                     </select>
                   </div>
-                  <div class="form-group">
-                    <label>件数 / 合計</label>
-                    <div class="item" style="padding:12px;">
-                      <div class="mini-label">全${otherCount}件（表示 ${otherCosts.length}件）</div>
+                </div>
+
+                <div class="item" style="margin-bottom:12px;background:#f8fafc;">
+                  <div class="item-grid">
+                    <div>
+                      <div class="mini-label">全件数</div>
+                      <div class="mini-value">${otherCount}件</div>
+                    </div>
+                    <div>
+                      <div class="mini-label">表示中</div>
+                      <div class="mini-value">${otherCosts.length}件</div>
+                    </div>
+                    <div>
+                      <div class="mini-label">合計金額</div>
                       <div class="mini-value">${formatCurrency(otherTotal)}</div>
                     </div>
                   </div>
-                  <div class="form-group">
-                    <label>操作</label>
-                    <button class="btn btn-ghost" type="button" onclick="clearListFilter()">🧹 絞り込み解除</button>
-                  </div>
+                </div>
+
+                <div style="margin-bottom:12px;">
+                  <button class="btn btn-ghost" type="button" onclick="clearListFilter()" style="width:100%;">🧹 絞り込み解除</button>
                 </div>
 
                 ${otherCosts.length === 0 ? `
-                  <div class="item" style="text-align:center;">
+                  <div class="item" style="text-align:center;padding:24px;">
                     <div class="muted">該当する明細がありません</div>
                   </div>
                 ` : `
@@ -1515,7 +1513,7 @@
     }
 
     // ========================================
-    // 粗利分析（一般 + 建産廃に統合）
+    // 粗利分析
     // ========================================
     function renderAnalysis() {
       return `
@@ -1534,12 +1532,12 @@
           </div>
 
           ${!state.profitAnalysis ? `
-            <div class="panel" style="text-align:center;padding:34px;">
-              <div style="font-size:56px;margin-bottom:12px;">📊</div>
-              <div class="muted" style="font-weight:900;margin-bottom:12px;">まだ粗利が計算されていません</div>
+            <div class="panel" style="text-align:center;padding:40px;">
+              <div style="font-size:56px;margin-bottom:14px;">📊</div>
+              <div style="font-weight:900;margin-bottom:14px;font-size:16px;">まだ粗利が計算されていません</div>
               <button class="btn btn-primary" type="button" onclick="calculateProfit()">✅ 粗利を計算</button>
-              <div class="hint" style="margin-top:12px;">
-                ※ 一般はカテゴリ粗利／産廃+建廃は “建産廃” としてまとめて表示します
+              <div class="hint" style="margin-top:14px;">
+                ※ 一般はカテゴリ粗利／産廃+建廃は "建産廃" としてまとめて表示します
               </div>
             </div>
           ` : renderAnalysisBody()}
@@ -1551,7 +1549,7 @@
       const { customerAnalysis, categorySummary } = state.profitAnalysis || {};
       const cs = categorySummary || {};
 
-      // ✅ 建産廃（産廃 + 建廃）を合算（フロントで統合）
+      // 建産廃（産廃 + 建廃）を合算
       const combined = {
         sales: (cs.industrial?.sales || 0) + (cs.construction?.sales || 0),
         cost:  (cs.industrial?.cost  || 0) + (cs.construction?.cost  || 0),
@@ -1560,15 +1558,15 @@
       combined.profitRate = combined.sales > 0 ? (combined.profit / combined.sales) * 100 : 0;
 
       return `
-        <h3 style="font-size:16px;font-weight:1000;margin:10px 0 12px;">📊 カテゴリ別（一般／建産廃）</h3>
+        <h3 style="font-size:17px;font-weight:1000;margin:12px 0 14px;">📊 カテゴリ別（一般／建産廃）</h3>
         <div class="grid grid-2">
           ${renderCategory('🗑️ 一般廃棄物', cs.general || {sales:0,cost:0,profit:0,profitRate:0}, 'general')}
           ${renderCategory('🏭 建産廃（産廃＋建廃）', combined, 'combined')}
         </div>
 
-        <h3 style="font-size:16px;font-weight:1000;margin:22px 0 12px;">👥 顧客別（建産廃）</h3>
+        <h3 style="font-size:17px;font-weight:1000;margin:28px 0 14px;">👥 顧客別（建産廃）</h3>
         ${(customerAnalysis || []).length === 0 ? `
-          <div class="item" style="text-align:center;">
+          <div class="item" style="text-align:center;padding:24px;">
             <div class="muted">分析対象の顧客がありません</div>
           </div>
         ` : (customerAnalysis || []).map(c => renderProfitCard(c)).join('')}
@@ -1594,7 +1592,7 @@
             </div>
           `}
 
-          <div class="item-grid" style="margin-top:12px;">
+          <div class="item-grid" style="margin-top:14px;">
             <div>
               <div class="mini-label">売上</div>
               <div class="mini-value">${formatCurrency(data.sales)}</div>
