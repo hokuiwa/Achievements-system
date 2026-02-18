@@ -1318,8 +1318,20 @@
         }
 
         function renderDisposalItem(cost) {
-            const totalCost = cost.quantity * cost.unitPrice;
+            const quantity = parseFloat(cost.quantity) || 0;
+            const unitPrice = parseFloat(cost.unitPrice) || 0;
+            const totalCost = quantity * unitPrice;
             const unit = cost.unit || 'kg';
+            
+            // デバッグ用
+            console.log('処分料明細:', {
+                wasteType: cost.wasteType,
+                quantity: quantity,
+                unit: unit,
+                unitPrice: unitPrice,
+                totalCost: totalCost
+            });
+            
             return `
                 <div class="customer-item" style="background: white;">
                     <div class="customer-header">
@@ -1334,11 +1346,11 @@
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0;">
                         <div>
                             <div class="profit-label">数量</div>
-                            <div class="profit-value">${cost.quantity.toLocaleString()} ${unit}</div>
+                            <div class="profit-value">${quantity.toLocaleString()} ${unit}</div>
                         </div>
                         <div>
                             <div class="profit-label">単価</div>
-                            <div class="profit-value">¥${cost.unitPrice.toLocaleString()}/${unit}</div>
+                            <div class="profit-value">¥${unitPrice.toLocaleString()}/${unit}</div>
                         </div>
                         <div>
                             <div class="profit-label">合計金額</div>
