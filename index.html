@@ -1161,14 +1161,16 @@
                             </div>
                             <div class="form-group">
                                 <label>処分場</label>
-                                <select id="general_facility">
-                                    <option value="">選択してください</option>
+                                <input type="text"
+                                       id="general_facility"
+                                       value="${generalCost.facility || ''}"
+                                       placeholder="角山開発"
+                                       list="generalFacilityList">
+                                <datalist id="generalFacilityList">
                                     ${state.facilities.map(f => `
-                                        <option value="${f.name}" ${f.name === generalCost.facility ? 'selected' : ''}>
-                                            ${f.name}
-                                        </option>
+                                        <option value="${f.name}">${f.name}</option>
                                     `).join('')}
-                                </select>
+                                </datalist>
                             </div>
                             <div class="form-group">
                                 <label>備考</label>
@@ -1193,14 +1195,20 @@
                             <div class="form-grid">
                                 <div class="form-group">
                                     <label>処分場 <span style="color: #ef4444;">*</span></label>
-                                    <select id="new_facility" onchange="updateNewDisposal('facility', this.value)">
-                                        <option value="">選択してください</option>
+                                    <input type="text"
+                                           id="new_facility"
+                                           value="${state.newDisposal.facility}"
+                                           onchange="updateNewDisposal('facility', this.value)"
+                                           placeholder="角山開発"
+                                           list="facilityList">
+                                    <datalist id="facilityList">
                                         ${state.facilities.map(f => `
-                                            <option value="${f.name}" ${state.newDisposal.facility === f.name ? 'selected' : ''}>
-                                                ${f.name}
-                                            </option>
+                                            <option value="${f.name}">${f.name}</option>
                                         `).join('')}
-                                    </select>
+                                    </datalist>
+                                    <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                                        💡 リストから選択、または自由に入力
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <label>顧客コード <span style="color: #ef4444;">*</span></label>
@@ -1212,21 +1220,37 @@
                                            placeholder="1100"
                                            list="customerCodes">
                                     <datalist id="customerCodes">
-                                        ${state.customers.map(c => `
-                                            <option value="${c.code}">${c.name}</option>
-                                        `).join('')}
+                                        ${[
+                                            ...state.customers.map(c => ({ code: c.code, name: c.name })),
+                                            ...state.sales
+                                                .filter(s => !state.customers.find(c => c.code === s.customerCode))
+                                                .map(s => ({ code: s.customerCode, name: s.customerName }))
+                                        ]
+                                            .filter((v, i, a) => a.findIndex(t => t.code === v.code) === i)
+                                            .sort((a, b) => a.code.localeCompare(b.code))
+                                            .map(c => `<option value="${c.code}">${c.name}</option>`)
+                                            .join('')}
                                     </datalist>
+                                    <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                                        💡 入力すると候補が表示されます
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <label>廃棄物種類 <span style="color: #ef4444;">*</span></label>
-                                    <select id="new_wasteType" onchange="updateNewDisposal('wasteType', this.value); loadDefaultUnitPrice(this.value, document.getElementById('new_customerCode').value)">
-                                        <option value="">選択してください</option>
+                                    <input type="text" 
+                                           id="new_wasteType"
+                                           value="${state.newDisposal.wasteType}" 
+                                           onchange="updateNewDisposal('wasteType', this.value); loadDefaultUnitPrice(this.value, document.getElementById('new_customerCode').value)"
+                                           placeholder="混合廃棄物（産廃）"
+                                           list="wasteTypeList">
+                                    <datalist id="wasteTypeList">
                                         ${state.wasteTypes.filter(w => w.category !== 'general').map(w => `
-                                            <option value="${w.name}" ${state.newDisposal.wasteType === w.name ? 'selected' : ''}>
-                                                ${w.name}
-                                            </option>
+                                            <option value="${w.name}">${w.name}</option>
                                         `).join('')}
-                                    </select>
+                                    </datalist>
+                                    <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                                        💡 リストから選択、または自由に入力
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <label>数量 <span style="color: #ef4444;">*</span></label>
@@ -1343,8 +1367,18 @@
         }
 
         function loadCustomerName(code) {
-            const customer = state.customers.find(c => c.code === code);
-            if (customer) {
+            // customersから検索
+            let customer = state.customers.find(c => c.code === code);
+            
+            // customersに無い場合はsalesから検索
+            if (!customer) {
+                const sale = state.sales.find(s => s.customerCode === code);
+                if (sale) {
+                    customer = { code: code, name: sale.customerName };
+                }
+            }
+            
+            if (customer && customer.name) {
                 document.getElementById('customerNameDisplay').style.display = 'block';
                 document.getElementById('customerNameText').textContent = customer.name;
             } else {
@@ -1398,7 +1432,7 @@
                 return;
             }
             if (!wasteType) {
-                alert('廃棄物種類を選択してください');
+                alert('廃棄物種類を入力してください');
                 return;
             }
             if (!quantity || quantity <= 0) {
@@ -1410,14 +1444,23 @@
                 return;
             }
             
-            // 顧客名を取得
-            const customer = state.customers.find(c => c.code === customerCode);
-            const customerName = customer ? customer.name : '';
+            // 顧客名を取得（customersまたはsalesから）
+            let customer = state.customers.find(c => c.code === customerCode);
             
-            if (!customerName) {
-                alert('顧客コードが見つかりません');
-                return;
+            // customersに無い場合はsalesから取得
+            if (!customer) {
+                const sale = state.sales.find(s => s.customerCode === customerCode);
+                if (sale) {
+                    customer = { code: customerCode, name: sale.customerName };
+                }
             }
+            
+            if (!customer || !customer.name) {
+                // どちらにも無い場合はコードをそのまま使用
+                console.warn('顧客コード', customerCode, 'が見つかりません。顧客コードを顧客名として使用します。');
+            }
+            
+            const customerName = customer ? customer.name : customerCode;
             
             // 合計金額を計算
             const totalCost = parseFloat(quantity) * parseFloat(unitPrice);
@@ -1440,7 +1483,7 @@
         async function saveGeneral() {
             const quantity = parseFloat(document.getElementById('general_quantity').value);
             const cost = parseFloat(document.getElementById('general_cost').value);
-            const facility = document.getElementById('general_facility').value;
+            const facility = document.getElementById('general_facility').value.trim();
             const notes = document.getElementById('general_notes').value;
             const unit = document.getElementById('general_unit') ? document.getElementById('general_unit').value : 'kg';
             
@@ -1450,7 +1493,7 @@
             }
             
             if (!facility) {
-                alert('処分場を選択してください');
+                alert('処分場を入力してください');
                 return;
             }
             
